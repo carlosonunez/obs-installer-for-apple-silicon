@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 LOG_LEVEL="${LOG_LEVEL:-info}"
+OBS_INSTALL_DIR="/tmp/obs"
+OBS_GIT_URI=https://github.com/obsproject/obs-studio.git
 
 _log() {
   echo "[$(date)] $(echo "$1" | tr '[:lower:]' '[:upper:]'): $2"
@@ -40,10 +42,18 @@ homebrew_installed() {
 }
 
 install_dependencies_or_fail() {
-  log_debug "Installing dependencies"
+  log_info "Installing build dependencies"
   if ! brew install akeru-inc/tap/xcnotary cmake cmocka ffmpeg jack mbedtls qt@5 swig vlc
   then
     fail "Unable to install one or more OBS dependencies. See log above for more details."
+  fi
+}
+
+download_obs_or_fail() {
+  log_info "Downloading OBS to $OBS_INSTALL_DIR. This might take a while; please be patient."
+  if ! git clone --recursive "$OBS_GIT_URI" "$OBS_INSTALL_DIR"
+  then
+    fail "Unable to download OBS."
   fi
 }
 
@@ -53,3 +63,4 @@ then
 fi
 
 install_dependencies_or_fail
+download_obs_or_fail
