@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+#
+# Interested in contributing? Thank you!
+# The easiest way to read this is to start from the bottom and work upwards!
+#
+REMOVE_INSTALLATION_DIRS="${REMOVE_INSTALLATION_DIRS:-true}"
 LOG_LEVEL="${LOG_LEVEL:-info}"
 OBS_INSTALL_DIR="/tmp/obs"
 OBS_DEPS_DIR="/tmp/obsdeps"
@@ -180,10 +185,17 @@ repackage_obs_or_fail() {
 }
 
 remove_data_directories() {
-  log_info "Cleaning up"
-  rm -rf "$OBS_INSTALL_DIR" &&
-    rm -rf "$OBS_DEPS_DIR" &&
-    rm -rf "$SPEEX_DIR"
+  if test "$REMOVE_INSTALLATION_DIRS" == "true"
+  then
+    log_info "Cleaning up"
+    rm -rf "$OBS_INSTALL_DIR" &&
+      rm -rf "$OBS_DEPS_DIR" &&
+      rm -rf "$SPEEX_DIR"
+  else
+    log_info "Clean up skipped. You can find OBS sources at $OBS_INSTALL_DIR,
+OBS dependencies sources at $OBS_DEPS_DIR, and Speex sources at
+$SPEEX_DIR."
+  fi
 }
 
 if this_is_not_an_m1_mac
@@ -208,7 +220,7 @@ build_obs_or_fail
 package_obs_or_fail
 add_virtualcam_plugin
 repackage_obs_or_fail
-#remove_data_directories
+remove_data_directories
 
 log_info "Installation succeeded! Move OBS into your Applications folder in the \
 Finder window that pops up."

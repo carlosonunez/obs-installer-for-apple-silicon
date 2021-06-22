@@ -12,6 +12,10 @@ From a Terminal (⌘-Space, type "Terminal"), simply:
 1. Clone this repository: `git clone https://github.com/carlosonunez/obs-installer-for-apple-silicon`, then
 2. Install: `cd obs-installer-for-apple-silicon && ./install.sh`
 
+**NOTE**: This script downloads OBS and its dependencies for you. If you wish to keep them
+after installation completes, run this instead:
+`REMOVE_INSTALLATION_DIRS=false ./install.sh`
+
 ## Problems? Feedback?
 
 Please raise a GitHub issue with any feedback, questions, or concerns! Note that this project
