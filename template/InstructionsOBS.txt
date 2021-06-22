@@ -1,0 +1,87 @@
+// Get the latest OBS + Submodules
+
+git clone --recursive https://github.com/obsproject/obs-studio.git
+cd obs-studio
+open .
+
+// This should open the root directory for OBS. Right click CMakeLists.txt and press open with text edit.
+
+//Inside this file, find (CMD+ F)the line that says "add_subdirectory(test)", underneath it should say endif()
+
+//Under that endif() line but before the else() add a new line and put the following:
+
+add_subdirectory(cmake/helper_subdir)
+
+//
+
+//Now open the cmake directory, go to Modules and open "ObsHelpers.cmake" in textedit like before.
+
+// find the line that says "set(OBS_SCRIPT_PLUGIN_PATH "${OBS_INSTALL_PREFIX}${OBS_SCRIPT_PLUGIN_DESTINATION}")"
+
+//After the endif() add a new line with the following:
+
+function(obs_finish_bundle)
+ 	if(NOT APPLE OR UNIX_STRUCTURE)
+ 		return()
+ 	endif()
+
+ 	install(CODE
+ 		"if(DEFINED ENV{FIXUP_BUNDLE})
+ 			execute_process(COMMAND \"${CMAKE_SOURCE_DIR}/cmake/osxbundle/fixup_bundle.sh\" . bin WORKING_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}\")
+ 		endif()")
+ endfunction()
+
+
+//
+
+//now go back to the root ons-studio directory, open the plugins folder and open CMakeLists.txt in text edit.
+
+//find the following lines and remove them
+
+option(BUILD_BROWSER "Build browser plugin" ON)
+if (BUILD_BROWSER)
+	if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/obs-browser/CMakeLists.txt")
+		add_subdirectory(obs-browser)
+		set(BROWSER_AVAILABLE_INTERNAL ON CACHE BOOL "Internal global cmake variable" FORCE)
+	else()
+		message(FATAL_ERROR "obs-browser submodule not found! Please fetch submodules or set BUILD_BROWSER=OFF.")
+	endif()
+else()
+	set(BROWSER_AVAILABLE_INTERNAL OFF CACHE BOOL "Internal global cmake variable" FORCE)
+endif()
+
+//
+//move the template files into the cmake directory
+//compile in cmake directory.
+
+//Command #1
+cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 -DDISABLE_PYTHON=ON ..
+
+//Command #2
+make
+
+//test it works by opening the obs binary in the rundir/RelWithDebInfo/bin folder.
+
+//Command #3 in the cmake dir
+cpack
+
+
+// VIRTUAL CAM MANUAL
+
+//Run this: 
+
+hdiutil convert -format UDRW -o ReadableAndWritableCopy.dmg (original OBS DMG)
+
+//In the cmake directory from before, copy the obs-mac-virtualcam plugin from rundir/RelWithxxx/data/ 
+
+//Open the ReadableAndWritableCopy.dmg DMG. Right click the OBS application > show contents 
+
+//Navigate to Contents > Resources > Data
+
+//Paste the obs-mac-virtualcam plugin
+
+//Close all the windows and then eject the DMG.
+
+//Run this:
+ 
+hdiutil convert -format UDRO -o OBS-ARM64-Final.dmg ReadableAndWritableCopy.dmg
