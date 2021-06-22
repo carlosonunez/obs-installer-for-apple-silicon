@@ -91,6 +91,19 @@ copy_templates_into_cloned_repo() {
   done < <(find template -type f | grep -Ev '(Instructions|DS_Store)')
 }
 
+build_obs() {
+  pushd "$OBS_INSTALL_DIR"
+  if !  cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 \
+      -DDISABLE_PYTHON=ON \
+      ..//waitmake//waitcd \
+      rundir/RelWithDebInfo/bin
+  then
+    popd &>/dev/null
+    fail "Unable to build OBS; see above logs for more info."
+  fi
+  popd &>/dev/null
+}
+
 if ! homebrew_installed
 then
   fail "Homebrew isn't installed. Please install it."
@@ -100,3 +113,4 @@ install_dependencies_or_fail
 download_obs_or_fail
 copy_modified_files_into_cloned_repo
 copy_templates_into_cloned_repo
+build_obs
