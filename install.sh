@@ -50,11 +50,45 @@ install_dependencies_or_fail() {
 }
 
 download_obs_or_fail() {
-  log_info "Downloading OBS to $OBS_INSTALL_DIR. This might take a while; please be patient."
-  if ! git clone --recursive "$OBS_GIT_URI" "$OBS_INSTALL_DIR"
+  if ! test -d "$OBS_INSTALL_DIR"
   then
-    fail "Unable to download OBS."
+    log_info "Downloading OBS to $OBS_INSTALL_DIR. This might take a while; please be patient."
+    if ! git clone --recursive "$OBS_GIT_URI" "$OBS_INSTALL_DIR"
+    then
+      fail "Unable to download OBS."
+    fi
+  else
+    log_debug "OBS repo already downloaded; skipping."
   fi
+}
+
+copy_modified_files_into_cloned_repo() {
+  while read -r file
+  do
+    dest="$OBS_INSTALL_DIR/$(echo "$file" | sed 's#files/##')"
+    log_info "Copying [$file] into [$dest]"
+    cp "$file" "$dest"
+  done < <(find files -type f)
+}
+
+copy_templates_into_cloned_repo() {
+  _create_folder_for_file_if_not_exist() {
+    file="$1"
+    dir_to_create="$(dirname "$file")"
+    if ! test -d "$dir_to_create"
+    then
+      log_info "Creating directory [$dir_to_create]"
+      mkdir -p "$dir_to_create"
+    fi
+  }
+
+  while read -r template
+  do
+    dest="$OBS_INSTALL_DIR/$(echo "$template" | sed 's#template/##')"
+    _create_folder_for_file_if_not_exist "$dest"
+    log_info "Copying template [$template] into [$dest]"
+    cp "$template" "$dest"
+  done < <(find template -type f | grep -Ev '(Instructions|DS_Store)')
 }
 
 if ! homebrew_installed
@@ -64,3 +98,5 @@ fi
 
 install_dependencies_or_fail
 download_obs_or_fail
+copy_modified_files_into_cloned_repo
+copy_templates_into_cloned_repo
