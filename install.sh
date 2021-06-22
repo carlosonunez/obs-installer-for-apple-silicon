@@ -29,6 +29,10 @@ _fetch() {
   fi
 }
 
+this_is_not_an_m1_mac() {
+  test "$(uname)" != "Darwin" || test "$(uname -p)" != "arm64"
+}
+
 log_debug() {
   if test "$(echo "$LOG_LEVEL" | tr '[:upper:]' '[:lower:]')" == "debug" || \
     test "$(echo "$LOG_LEVEL" | tr '[:upper:]' '[:lower:]')" == "verbose"
@@ -181,6 +185,13 @@ remove_data_directories() {
     rm -rf "$OBS_DEPS_DIR" &&
     rm -rf "$SPEEX_DIR"
 }
+
+if this_is_not_an_m1_mac
+then
+  fail "This installer only works on Apple M1 Macs. \
+For OBS 26.x, use Homebrew: 'brew install obs'. \
+For OBS 27.x, build OBS from source using the mainstream instructions"
+fi
 
 if ! homebrew_installed
 then
