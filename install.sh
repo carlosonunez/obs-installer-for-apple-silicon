@@ -36,8 +36,8 @@ _fetch() {
 
 this_is_not_an_m1_mac() {
   test "$(uname)" != "Darwin" ||
-    test "$(uname -p)" != "arm64" ||
-    test "$(uname -p)" != "arm"
+    (test "$(uname -p)" != "arm64" &&
+    test "$(uname -p)" != "arm")
 }
 
 log_debug() {
