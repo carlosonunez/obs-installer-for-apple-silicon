@@ -7,14 +7,30 @@ This build includes:
 * Mac Virtual Camera, and
 * Noise Suppression Filters (RNNoise, Speex).
 
+## How to Use
+
 From a Terminal (⌘-Space, type "Terminal"), simply:
 
 1. Clone this repository: `git clone https://github.com/carlosonunez/obs-installer-for-apple-silicon`, then
 2. Install: `cd obs-installer-for-apple-silicon && ./install.sh`
 
+If you want to build a specific version of OBS (that's greater than version 27.0.1),
+run this:
+
+```sh
+OBS_VERSION=[VERSION] ./install.sh
+```
+
 **NOTE**: This script downloads OBS and its dependencies for you. If you wish to keep them
 after installation completes, run this instead:
 `REMOVE_INSTALLATION_DIRS=false ./install.sh`
+
+Run `./install.sh --help` or `./install.sh -h` to view all of your options.
+
+## About VB-Cable
+
+VB-Cable does not come bundled with OBS. If you need VB-Cable/VoiceMeeter/Banana/etc.,
+download it from https://vb-audio.com/Cable/.
 
 ## Problems? Feedback?
 
