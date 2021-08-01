@@ -15,7 +15,7 @@ INTERMEDIATE_OBS_DMG_PATH="$OBS_INSTALL_DIR/obs-intermediate.dmg"
 FINAL_OBS_DMG_PATH="$HOME/Downloads/obs-$OBS_VERSION-for-m1.dmg"
 SPEEX_DIR=/tmp/speexdsp
 SPEEX_URI=https://github.com/xiph/speexdsp.git
-
+#TEST
 usage() {
   cat <<-USAGE
 [ENV_VARS] $(basename $0) [OPTIONS]
