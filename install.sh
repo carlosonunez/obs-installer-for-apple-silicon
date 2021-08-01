@@ -189,7 +189,7 @@ $MIN_SUPPORTED_OBS_MAJOR_VERSION or greater are supported by this script."
 install_dependencies_or_fail() {
   log_info "Installing build dependencies"
   if ! HOMEBREW_NO_AUTO_UPDATE=1 brew install akeru-inc/tap/xcnotary cmake \
-    cmocka ffmpeg jack mbedtls qt@5 swig vlc
+    cmocka ffmpeg jack mbedtls@2 qt@5 swig vlc
   then
     fail "Unable to install one or more OBS dependencies. See log above for more details."
   fi
