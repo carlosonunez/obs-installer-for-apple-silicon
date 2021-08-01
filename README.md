@@ -11,7 +11,7 @@ This build includes:
 
 From a Terminal (⌘-Space, type "Terminal"), simply:
 
-1. Clone this repository: `git clone https://github.com/carlosonunez/obs-installer-for-apple-silicon`, then
+1. Clone this repository: `https://github.com/Zfauser/obs-installer-for-apple-silicon`, then
 2. Install: `cd obs-installer-for-apple-silicon && ./install.sh`
 
 If you want to build a specific version of OBS (that's greater than version 27.0.1),
