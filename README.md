@@ -38,3 +38,11 @@ Please raise a GitHub issue with any feedback, questions, or concerns! Note that
 is supported on a best-effort basis. I'll add automated testing once GitHub Actions
 supports Apple M1 runners.
 
+## Errata
+
+### Missing items
+
+The following items are missing from mainline OBS:
+
+- OBS Lua scripting
+- Browser support (though its build flag is enabled and Chromium is bundled in)
