@@ -18,7 +18,7 @@ SPEEX_URI=https://github.com/xiph/speexdsp.git
 
 usage() {
   cat <<-USAGE
-[ENV_VARS] $(basename $0) [OPTIONS]
+[ENV_VARS] $(basename "$0") [OPTIONS]
 Conveniently builds an M1-compatible OBS from scratch.
 
 ENVIRONMENT VARIABLES
@@ -118,7 +118,7 @@ disable_tracing() {
 this_is_not_an_m1_mac() {
   log_debug "Linux variant: $(uname); CPU arch: $(uname -p)"
   test "$(uname)" != "Darwin" ||
-    ( test "$(uname -p)" != "arm64" && test "$(uname -p)" != "arm" )
+    { test "$(uname -p)" != "arm64" && test "$(uname -p)" != "arm"; }
 }
 
 log_verbose() {
@@ -165,7 +165,7 @@ verify_obs_version_or_fail() {
   _obs_version_is_branch_or_commit_sha() {
     test "$1" == "master" ||
       test "$1" == "main" ||
-      ! test -z $(echo "$1" | grep -E '^[0-9]{2}\.[0-9]{1,2}\.[0-9]{1,2}')
+      ! test -z "$(echo "$1" | grep -E '^[0-9]{2}\.[0-9]{1,2}\.[0-9]{1,2}')"
   }
 
   _obs_major_version_greater_than_min_supported_major() {
@@ -181,7 +181,7 @@ verify_obs_version_or_fail() {
   fi
   if ! _obs_major_version_greater_than_min_supported_major "$OBS_VERSION"
   then
-    fail "You're trying to install OBS version "$1", but only versions \
+    fail "You're trying to install OBS version $OBS_VERSION, but only versions \
 $MIN_SUPPORTED_OBS_MAJOR_VERSION or greater are supported by this script."
   fi
 }
@@ -211,6 +211,7 @@ fetch_speexdsp_source() {
 copy_modified_files_into_cloned_repo() {
   while read -r file
   do
+    # shellcheck disable=SC2001
     dest="$OBS_INSTALL_DIR/$(echo "$file" | sed 's#files/##')"
     log_info "Copying [$file] into [$dest]"
     cp "$file" "$dest"
@@ -230,6 +231,7 @@ copy_templates_into_cloned_repo() {
 
   while read -r template
   do
+    # shellcheck disable=SC2001
     dest="$OBS_INSTALL_DIR/$(echo "$template" | sed 's#template/##')"
     _create_folder_for_file_if_not_exist "$dest"
     log_info "Copying template [$template] into [$dest]"
@@ -238,7 +240,7 @@ copy_templates_into_cloned_repo() {
 }
 
 build_obs_or_fail() {
-  pushd "$OBS_INSTALL_DIR/cmake"
+  pushd "$OBS_INSTALL_DIR/cmake" || return
   if ! (
     cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 -DDISABLE_PYTHON=ON \
       -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/qt@5" \
@@ -249,15 +251,15 @@ build_obs_or_fail() {
     stat rundir/RelWithDebInfo/bin/obs 1>/dev/null
   )
   then
-    popd &>/dev/null
+    popd &>/dev/null || return
     fail "Unable to build OBS; see above logs for more info. \
 Try running this instead: REPACKAGE=true ./install.sh"
   fi
-  popd &>/dev/null
+  popd &>/dev/null || return
 }
 
 get_obs_studio_dmg_path() {
-  2>/dev/null find "$OBS_INSTALL_DIR/cmake" -type f -name *.dmg | \
+  find "$OBS_INSTALL_DIR/cmake" -type f -name '*.dmg' 2>/dev/null| \
     grep -E 'obs-studio.*-modified.dmg' | \
     head -1
 }
@@ -266,13 +268,13 @@ package_obs_or_fail() {
   if test -z "$(get_obs_studio_dmg_path)"
   then
     log_info "Packaging OBS"
-    pushd "$OBS_INSTALL_DIR/cmake"
+    pushd "$OBS_INSTALL_DIR/cmake" || return
     if ! cpack || test -z "$(get_obs_studio_dmg_path)"
     then
-      popd &>/dev/null
+      popd &>/dev/null || return
       fail "Unable to package OBS; see above logs for more info."
     fi
-    popd &>/dev/null
+    popd &>/dev/null || return
   fi
 }
 
