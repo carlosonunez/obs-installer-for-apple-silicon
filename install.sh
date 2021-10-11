@@ -10,11 +10,39 @@ OBS_INSTALL_DIR="/tmp/obs"
 OBS_DEPS_DIR="/tmp/obsdeps"
 OBS_GIT_URI=https://github.com/obsproject/obs-studio.git
 OBS_DEPS_GIT_URI=https://github.com/obsproject/obs-deps.git
-OBS_VERSION="${OBS_VERSION:-27.0.1}"
-INTERMEDIATE_OBS_DMG_PATH="$OBS_INSTALL_DIR/obs-intermediate.dmg"
-FINAL_OBS_DMG_PATH="$HOME/Downloads/obs-$OBS_VERSION-for-m1.dmg"
+OBS_VERSION="${OBS_VERSION:-27.1.3}"
+VLC_VERSION=3.0.8
+VLC_URL="https://downloads.videolan.org/vlc/${VLC_VERSION}/vlc-${VLC_VERSION}.tar.xz"
+VLC_DIR=/tmp/vlc-obs
+CEF_URL="https://cef-builds.spotifycdn.com/cef_binary_94.4.5%2Bg0fd0d6f%2Bchromium-94.0.4606.71_macosarm64.tar.bz2"
+CEF_DIR=/tmp/cef-obs
+CEF_FOLDER_NAME=cef_binary_94.4.5+g0fd0d6f+chromium-94.0.4606.71_macosarm64
 SPEEX_DIR=/tmp/speexdsp
 SPEEX_URI=https://github.com/xiph/speexdsp.git
+DYLIBBUNDLER_URI=https://github.com/obsproject/obs-studio/raw/master/CI/scripts/macos/app/dylibbundler
+DYLIBBUNDLER_PATH="/tmp/dylibbundler"
+FINAL_APP_PATH="$HOME/Downloads/OBS.app"
+BUNDLE_PLUGINS=(
+  coreaudio-encoder.so
+  decklink-ouput-ui.so
+  decklink-captions.so
+  frontend-tools.so
+  image-source.so
+  mac-avcapture.so
+  mac-capture.so
+  mac-decklink.so
+  mac-syphon.so
+  mac-vth264.so
+  mac-virtualcam.so
+  obs-ffmpeg.so
+  obs-filters.so
+  obs-transitions.so
+  obs-vst.so
+  rtmp-services.so
+  obs-x264.so
+  text-freetype2.so
+  obs-outputs.so
+)
 
 usage() {
   cat <<-USAGE
@@ -29,13 +57,15 @@ ENVIRONMENT VARIABLES
   REPACKAGE                   Re-downloads OBS and its dependencies. (Default: false)
   REMOVE_INSTALLATION_DIRS    Removes temporary OBS source code dirs. (Default: true)
   OBS_VERSION                 The version of OBS to build. See NOTES for more
-                              information. (Default: 27.0.1)
+                              information. (Default: $OBS_VERSION)
 
 OPTIONS
 
   -h, --help                  Shows this documentation.
 
 NOTES
+
+  - THIS WILL DELETE YOUR EXISTING INSTALLATION OF OBS!
 
   - You can build OBS from specific version tags, commits, OR branches.
     To do that, define the OBS_VERSION variable before running ./install.sh, like
@@ -161,6 +191,17 @@ homebrew_installed() {
   which brew &>/dev/null
 }
 
+delete_obs_and_deps_before_building() {
+  log_info "Deleting OBS, StreamFX, and Virtual Camera. Type your password in when prompted..."
+  for dir in "/Applications/OBS.app" \
+    "/Library/CoreMediaIO/Plug-Ins/DAL/" \
+    "/Library/Application Support/obs-studio/plugins"
+  do
+    log_info "---> Deleting $dir"
+    sudo rm -rf "$dir"
+  done
+}
+
 verify_obs_version_or_fail() {
   _obs_version_is_branch_or_commit_sha() {
     test "$1" == "master" ||
@@ -188,10 +229,49 @@ $MIN_SUPPORTED_OBS_MAJOR_VERSION or greater are supported by this script."
 
 install_dependencies_or_fail() {
   log_info "Installing build dependencies"
-  if ! HOMEBREW_NO_AUTO_UPDATE=1 brew install akeru-inc/tap/xcnotary cmake \
-    cmocka ffmpeg jack mbedtls@2 qt@5 swig vlc
+  if ! HOMEBREW_NO_AUTO_UPDATE=1 brew install -q akeru-inc/tap/xcnotary cmake \
+    cmocka ffmpeg jack mbedtls qt@5 swig "openssl@1.1"
   then
     fail "Unable to install one or more OBS dependencies. See log above for more details."
+  fi
+  log_info "Installing dylibbundler from OBS repo"
+  if ! test -f "$DYLIBBUNDLER_PATH"
+  then
+    if ! curl -Lo "$DYLIBBUNDLER_PATH" "$DYLIBBUNDLER_URI"
+    then
+      fail "Unable to install dylibbundler; see above log for details"
+    fi
+    chmod +x "$DYLIBBUNDLER_PATH"
+  fi
+}
+
+download_chromium_embedded_framework_or_fail() {
+  if ! test -d "$CEF_DIR"
+  then
+    log_info "Fetching [Chromium Embedded Framework] from [$CEF_URL]"
+    if ! {
+      mkdir -p "$CEF_DIR" &&
+        curl -Lo /tmp/vlc-obs.tar.gz "$CEF_URL" &&
+        tar -xzf /tmp/vlc-obs.tar.gz -C "$CEF_DIR";
+      }
+    then
+      fail "Couldn't install Chromium Embedded Framework; see logs above"
+    fi
+  fi
+}
+
+download_vlc_or_fail() {
+  if ! test -d "$VLC_DIR"
+  then
+    log_info "Fetching [VLC] from [$VLC_URL]"
+    if ! {
+      mkdir -p "$VLC_DIR" &&
+        curl -Lo /tmp/vlc-obs.tar.gz "$VLC_URL" &&
+        tar -xzf /tmp/vlc-obs.tar.gz -C "$VLC_DIR";
+      }
+    then
+      fail "Couldn't install VLC; see logs above"
+    fi
   fi
 }
 
@@ -240,12 +320,21 @@ copy_templates_into_cloned_repo() {
 }
 
 build_obs_or_fail() {
+  export LDFLAGS="-L/opt/homebrew/opt/openssl@1.1/lib"
+  export CPPFLAGS="-I/opt/homebrew/opt/openssl@1.1/include"
   pushd "$OBS_INSTALL_DIR/cmake" || return
   if ! (
     cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 -DDISABLE_PYTHON=ON \
       -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/qt@5" \
       -DSPEEXDSP_INCLUDE_DIR="$SPEEX_DIR/include" \
       -DSWIGDIR="$OBS_DEPS_DIR" \
+      -DENABLE_VLC=ON \
+      -DWITH_RTMPS=ON \
+      -DVLC_INCLUDE_DIR="$VLC_DIR/vlc-${VLC_VERSION}/include/vlc" \
+      -DVLCPath="$VLC_DIR/vlc-${VLC_VERSION}" \
+      -DBUILD_BROWSER=ON \
+      -DLEGACY_BROWSER=OFF \
+      -DCEF_ROOT_DIR="${CEF_DIR}/${CEF_FOLDER_NAME}" \
       -DDepsPath="$OBS_DEPS_DIR" .. &&
     make &&
     stat rundir/RelWithDebInfo/bin/obs 1>/dev/null
@@ -258,54 +347,76 @@ Try running this instead: REPACKAGE=true ./install.sh"
   popd &>/dev/null || return
 }
 
-get_obs_studio_dmg_path() {
-  find "$OBS_INSTALL_DIR/cmake" -type f -name '*.dmg' 2>/dev/null| \
-    grep -E 'obs-studio.*-modified.dmg' | \
-    head -1
-}
-
-package_obs_or_fail() {
-  if test -z "$(get_obs_studio_dmg_path)"
+dmg_obs_or_fail() {
+  if test -z "$(intermediate_app_path)"
   then
-    log_info "Packaging OBS"
+    log_info "Packaging OBS into an image"
     pushd "$OBS_INSTALL_DIR/cmake" || return
-    if ! cpack || test -z "$(get_obs_studio_dmg_path)"
+    if ! cpack || test -z "$(intermediate_app_path)"
     then
       popd &>/dev/null || return
-      fail "Unable to package OBS; see above logs for more info."
+      fail "Unable to package OBS into a DMG; see above logs for more info."
     fi
     popd &>/dev/null || return
   fi
 }
 
-add_virtualcam_plugin() {
-  log_info "Adding MacOS Virtual Camera plugin."
-  log_debug "OBS dmg path: $(get_obs_studio_dmg_path)"
-  if test -f "$INTERMEDIATE_OBS_DMG_PATH"
+intermediate_app_path() {
+  if ! find "$OBS_INSTALL_DIR" -name OBS.app | head -1
   then
-    rm "$INTERMEDIATE_OBS_DMG_PATH"
+    fail "Couldn't find generated OBS MacOS app"
   fi
-  if ! (
-    hdiutil convert -format UDRW -o "$INTERMEDIATE_OBS_DMG_PATH" "$(get_obs_studio_dmg_path)" &&
-    hdiutil attach "$INTERMEDIATE_OBS_DMG_PATH"
-  )
-  then
-    fail "Unable to create or attach to writeable OBS image; see logs for more."
-  fi
-  device=$(hdiutil attach "$INTERMEDIATE_OBS_DMG_PATH" | \
-    tail -1 | \
-    awk '{print $1}')
-  mountpath=$(hdiutil attach "$INTERMEDIATE_OBS_DMG_PATH" | \
-    tail -1 | \
-    awk '{print $3}')
-  cp -r "$OBS_INSTALL_DIR/cmake/rundir/RelWithDebInfo/data/obs-mac-virtualcam.plugin" \
-    "$mountpath/OBS.app/Contents/Resources/data"
-  hdiutil detach "$device"
 }
 
-repackage_obs_or_fail() {
-  log_info "Re-packaging OBS with Virtual Camera added."
-  hdiutil convert -format UDRO -o "$FINAL_OBS_DMG_PATH" "$INTERMEDIATE_OBS_DMG_PATH"
+add_opengl_into_package() {
+  log_info "Adding OpenGL to OBS package"
+  cp -r '/tmp/obs/libobs-opengl' "$(intermediate_app_path)/Contents/Frameworks"
+}
+
+add_cef_into_package() {
+  log_info "Adding Chromium Embedded Framework into package"
+  cp -r "${CEF_DIR}/${CEF_FOLDER_NAME}/Release/Chromium Embedded Framework.framework" \
+    "$(intermediate_app_path)/Contents/Frameworks"
+}
+
+# NOTE: This function seems to fail the first time around but succeed
+# thereafter. This might be a bug; not sure at the moment.
+add_bundled_plugins_or_fail() {
+  attempted="${1:-false}"
+  log_info "Adding bundled OBS plugins"
+  # This was copied straight from the OBS CI pipeline
+  log_debug "Bundling with these options: ${BUNDLE_PLUGINS[*]/#/-x }"
+  # shellcheck disable=SC2116
+  # shellcheck disable=SC2046
+  if ! {
+    "$DYLIBBUNDLER_PATH" -cd -of -a "$(intermediate_app_path)" -q -f \
+      -s "$(intermediate_app_path)/Contents/Resources/bin" \
+      -s "$(intermediate_app_path)/Contents/MacOS" \
+      -s "$OBS_INSTALL_DIR/cmake/rundir/RelWithDebInfo/obs-plugins" \
+      -x "$OBS_INSTALL_DIR/cmake/rundir/RelWithDebInfo/bin/obs-ffmpeg-mux" \
+      $(echo "${BUNDLE_PLUGINS[@]/#/-x ${OBS_INSTALL_DIR}/cmake/rundir/RelWithDebInfo/obs-plugins/}");
+  }
+  then
+    if test "$attempted" == "true"
+    then
+      fail "Couldn't install OBS plugins; see logs above"
+    else
+      log_warning "Couldn't install plugins on the first shot; trying again"
+      add_bundled_plugins_or_fail "true"
+    fi
+  fi
+}
+
+copy_obs_app_into_downloads() {
+  log_info "Copying final OBS DMG into your Downloads directory"
+  test -f "$FINAL_APP_PATH" && rm -f "$FINAL_APP_PATH"
+  cp -r "$(intermediate_app_path)" "$FINAL_APP_PATH"
+}
+
+add_virtualcam_plugin() {
+  log_info "Adding MacOS Virtual Camera plugin."
+  cp -r "$OBS_INSTALL_DIR/cmake/rundir/RelWithDebInfo/data/obs-plugins/mac-virtualcam/obs-mac-virtualcam.plugin" \
+    "$(intermediate_app_path)/Contents/Resources/data"
 }
 
 remove_data_directories_if_repackaging() {
@@ -321,7 +432,10 @@ remove_data_directories() {
     log_info "Removing OBS sources"
     rm -rf "$OBS_INSTALL_DIR" &&
       rm -rf "$OBS_DEPS_DIR" &&
-      rm -rf "$SPEEX_DIR"
+      rm -rf "$SPEEX_DIR" &&
+      rm -rf "$VLC_DIR" &&
+      rm -rf "$CEF_DIR" &&
+      rm -rf "$DYLIBBUNDLER_PATH"
   else
     log_info "Clean up skipped. You can find OBS sources at $OBS_INSTALL_DIR,
 OBS dependencies sources at $OBS_DEPS_DIR, and Speex sources at
@@ -349,22 +463,28 @@ then
   fail "Homebrew isn't installed. Please install it."
 fi
 
+delete_obs_and_deps_before_building
 verify_obs_version_or_fail
 remove_data_directories_if_repackaging
 install_dependencies_or_fail
+download_vlc_or_fail
+download_chromium_embedded_framework_or_fail
 download_obs_or_fail
 download_obs_deps_or_fail
 copy_modified_files_into_cloned_repo
 copy_templates_into_cloned_repo
 fetch_speexdsp_source
 build_obs_or_fail
-package_obs_or_fail
+dmg_obs_or_fail
+add_opengl_into_package
+add_cef_into_package
 add_virtualcam_plugin
-repackage_obs_or_fail
+add_bundled_plugins_or_fail
+copy_obs_app_into_downloads
 remove_data_directories
 
 disable_tracing
 
-log_info "Installation succeeded! Move OBS into your Applications folder in the \
-Finder window that pops up."
-open "$FINAL_OBS_DMG_PATH"
+log_info "Installation succeeded! Move OBS from your Downloads folder into \
+your Applications folder when the window pops up."
+open "$(dirname "$FINAL_APP_PATH")"
