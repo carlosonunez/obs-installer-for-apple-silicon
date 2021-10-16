@@ -230,7 +230,7 @@ $MIN_SUPPORTED_OBS_MAJOR_VERSION or greater are supported by this script."
 install_dependencies_or_fail() {
   log_info "Installing build dependencies"
   if ! HOMEBREW_NO_AUTO_UPDATE=1 brew install -q akeru-inc/tap/xcnotary cmake \
-    cmocka ffmpeg jack mbedtls qt@5 swig "openssl@1.1"
+    cmocka ffmpeg jack mbedtls@2 qt@5 swig "openssl@1.1"
   then
     fail "Unable to install one or more OBS dependencies. See log above for more details."
   fi
@@ -325,7 +325,7 @@ build_obs_or_fail() {
   pushd "$OBS_INSTALL_DIR/cmake" || return
   if ! (
     cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 -DDISABLE_PYTHON=ON \
-      -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/qt@5" \
+      -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/qt@5;/opt/homebrew/opt/mbedtls@2" \
       -DSPEEXDSP_INCLUDE_DIR="$SPEEX_DIR/include" \
       -DSWIGDIR="$OBS_DEPS_DIR" \
       -DENABLE_VLC=ON \
