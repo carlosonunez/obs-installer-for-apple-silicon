@@ -479,7 +479,6 @@ dmg_obs_or_fail
 add_opengl_into_package
 add_cef_into_package
 add_virtualcam_plugin
-add_bundled_plugins_or_fail
 copy_obs_app_into_downloads
 remove_data_directories
 
