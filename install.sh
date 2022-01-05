@@ -4,10 +4,12 @@
 # The easiest way to read this is to start from the bottom and work upwards!
 #
 REMOVE_INSTALLATION_DIRS="${REMOVE_INSTALLATION_DIRS:-true}"
+USE_EXPERIMENTAL_UNIVERSAL_BUILD="${USE_EXPERIMENTAL_UNIVERSAL_BUILD:-false}"
 REPACKAGE="${REPACKAGE:-false}"
 LOG_LEVEL="${LOG_LEVEL:-info}"
 OBS_INSTALL_DIR="/tmp/obs"
 OBS_DEPS_DIR="/tmp/obsdeps"
+OBS_GH_ACTIONS_RUNS_URI="repos/obsproject/obs-studio/actions/runs?branch=universal-build&actor=PatTheMav'"
 OBS_GIT_URI=https://github.com/obsproject/obs-studio.git
 OBS_DEPS_GIT_URI=https://github.com/obsproject/obs-deps.git
 OBS_VERSION="${OBS_VERSION:-27.1.3}"
@@ -51,13 +53,28 @@ Conveniently builds an M1-compatible OBS from scratch.
 
 ENVIRONMENT VARIABLES
 
-  LOG_LEVEL                   Set the level of logging you see on the console.
-                              Options are: info, warning, error, debug, verbose.
-                              Verbose logging also turns on shell traces. (Default: info)
-  REPACKAGE                   Re-downloads OBS and its dependencies. (Default: false)
-  REMOVE_INSTALLATION_DIRS    Removes temporary OBS source code dirs. (Default: true)
-  OBS_VERSION                 The version of OBS to build. See NOTES for more
-                              information. (Default: $OBS_VERSION)
+  LOG_LEVEL                             Set the level of logging you see on the console.
+                                        Options are: info, warning, error,
+                                        debug, verbose.
+                                        Verbose logging also turns on shell traces.
+                                        (Default: info)
+  REPACKAGE                             Re-downloads OBS and its dependencies.
+                                        (Default: false)
+  REMOVE_INSTALLATION_DIRS              Removes temporary OBS source code dirs.
+                                        (Default: true)
+  OBS_VERSION                           The version of OBS to build. See NOTES
+                                        for more information. (Default: $OBS_VERSION)
+  USE_EXPERIMENTAL_UNIVERSAL_BUILD      Use the experimental multi-branch build
+                                        of OBS; see notes for more.
+                                        (Default: false)
+  GH_CLIENT_ID                          The client ID for your GitHub app; see
+                                        NOTES for more information.
+                                        Required if USE_EXPERIMENTAL_UNIVERSAL_BUILD
+                                        is true.
+  GH_CLIENT_SECRET                      The client secret for your GitHub app; see
+                                        NOTES for more information.
+                                        Required if USE_EXPERIMENTAL_UNIVERSAL_BUILD
+                                        is true.
 
 OPTIONS
 
@@ -79,11 +96,41 @@ NOTES
     - If OBS_VERSION differs from the version that you built last time,
       then OBS and its dependencies will be re-downloaded.
     - This script does not support any OBS version earlier than 27.0.1.
+
+  - USE_EXPERIMENTAL_UNIVERSAL_BUILD will use an experimental version of the
+    OBS project's build scripts that has multiplatform builds enabled. This
+    script is supported by GitHub user "PatTheMav"; the branch containing
+    this patch is located here:
+    https://github.com/PatTheMav/obs-studio/tree/universal-build.
+
+    This feature flag will be removed once multiplatform builds are officially
+    provided by OBS.
+
+    ***IMPORTANT***: THIS IS AN EXPERIMENTAL OPTION AND IS PROVIDED AS-IS. NO SUPPORT
+    WILL BE PROVIDED SHOULD YOU USE THIS OPTION. PLEASE CONTACT THE ORIGINAL DEVELOPER
+    OF THIS FORK SHOULD YOU RUN INTO ISSUES.
+
+    In order to use this feature, you'll need to register a new GitHub application
+    and retrieve its client ID and secret. Visit this page to learn how to do
+    this: https://docs.github.com/en/rest/guides/basics-of-authentication. Once done,
+    provide your application's client ID and secret with the GH_CLIENT_SECRET
+    and GH_CLIENT_ID environment variables.
+
+EXAMPLES
+
+    > ./install.sh
+
+    Builds the latest version of OBS.
+
+    > USE_EXPERIMENTAL_UNIVERSAL_BUILD=true GH_CLIENT_ID=foo GH_CLIENT_SECRET=bar install.sh
+
+    Fetches the latest version of OBS from GitHub Action built using a patched version of
+    its official CI build script.
 USAGE
 }
 
 _log() {
-  echo "[$(date)] $(echo "$1" | tr '[:lower:]' '[:upper:]'): $2"
+  >&2 echo "[$(date)] $(echo "$1" | tr '[:lower:]' '[:upper:]'): $2"
 }
 
 _fetch() {
@@ -443,6 +490,123 @@ $SPEEX_DIR."
   fi
 }
 
+use_experimental_universal_build() {
+  grep -Eiq '^true$' <<< "$USE_EXPERIMENTAL_UNIVERSAL_BUILD"
+}
+
+
+download_experimental_universal_build_of_obs_or_fail() {
+  _get_gh_actions_target_artifact_url() {
+    token="$1"
+    # This needs to be done in a loop since some builds might not have any
+    # artifacts and the top-level object does not expose the number of artifacts
+    # that were produced.
+    workflow_runs=$(curl -H "Authorization: token $token" \
+        -Ls "https://api.github.com/$OBS_GH_ACTIONS_RUNS_URI" |
+      jq -r '.workflow_runs')
+    test -z "$workflow_runs" && fail "Unable to get OBS CI builds"
+    number_of_runs=$(jq -r '. | length' <<< "$workflow_runs")
+    for idx in $(seq 0 "$number_of_runs")
+    do
+      artifact_url="$(jq -r ".[$idx].artifacts_url" <<< "$workflow_runs")"
+      id="$(jq -r ".[$idx].id" <<< "$workflow_runs")"
+      log_info "Checking OBS build job $id for artifacts..."
+      test -z "$artifact_url" && fail "Couldn't get run $idx from CI builds"
+      artifacts=$(curl -H "Authorization: token $token" -Ls "$artifact_url" | jq -r .)
+      test -z "$artifact_url" && fail "Couldn't get artifacts from OBS build $id"
+      num_artifacts=$(jq -r '.total_count' <<< "$artifacts")
+      if test "$num_artifacts" != "0"
+      then
+        jq -r '.artifacts[] | select(.name == "obs-macos-arm64") | .archive_download_url' <<< "$artifacts"
+        return
+      fi
+      log_warning "OBS build [$id] doesnt' have any artifacts. Checking next job."
+    done
+  }
+
+  # TODO: Break this function down; it's doing too much.
+  token="$1"
+  if ! (
+    target_artifact_url=$(_get_gh_actions_target_artifact_url "$token")
+    destination="$OBS_INSTALL_DIR/obs.zip"
+    test -z "$target_artifact_url" && fail "Unable to get the download link to the \
+latest pre-compiled build of OBS."
+    log_info "Downloading latest OBS cross-platform build from $target_artifact_url"
+    test -d "$OBS_INSTALL_DIR" || mkdir -p "$OBS_INSTALL_DIR"
+    curl -H "Authorization: token $token" -Lo "$destination" "$target_artifact_url"
+    test -f "$destination" || fail "Unable to download OBS"
+    file "$destination" | grep -Ei 'zip' || fail "OBS download is corrupted. Expected \
+a ZIP file, but got a $(file "$destination")."
+    log_info "Unzipping $destination to $FINAL_APP_PATH"
+    unzip "$destination" -d "$(basename "$FINAL_APP_PATH")"
+    log_info "OBS downloaded; move OBS into your Applications folder when prompted."
+    open "$(find "$(basename "$FINAL_APP_PATH")" -name "obs-studio*macOS*dmg" | head -1)"
+  )
+  then
+    fail "Unable to fetch the latest universal OBS artifact"
+  fi
+}
+
+build_experimental_universal_build_of_obs_or_fail() {
+  pushd "$OBS_INSTALL_DIR" || return
+  if ! ./CI/build-macos.sh -b
+  then
+    popd &>/dev/null || return
+    fail "Unable to build OBS; see above logs for more info. \
+Set USE_EXPERIMENTAL_UNIVERSAL_BUILD=false or try running this \
+instead: REPACKAGE=true ./install.sh"
+  fi
+  popd &>/dev/null || return
+}
+
+verify_gh_actions_env_vars_or_fail() {
+  for var in GH_CLIENT_ID GH_CLIENT_SECRET
+  do
+    test -z "${!var}" && fail "Please define $var"
+  done
+}
+
+verify_jq_installed_or_fail() {
+  &>/dev/null which jq || fail "You'll need to install jq. Install it from \
+Homebrew: brew install jq"
+}
+
+retrieve_access_token_or_fail() {
+  _tell_user_to_authorize_their_app() {
+    auth_url="https://github.com/login/oauth/authorize?scope=actions&client_id=$GH_CLIENT_ID"
+    log_info "In order to fetch OBS from GitHub Actions, you'll need to authorize the application \
+that you created. Click this URL or copy/paste it into your browser to do that: \
+$auth_url."
+  }
+
+  _wait_for_code() {
+    wait_for_code_timeout_secs=180
+    callback_port=4567
+    response=$(sh -c "echo 'HTTP/1.1 200 OK\n\nThanks. Go back to your terminal to finish \
+installing OBS.' && exit" | nc -w $wait_for_code_timeout_secs -l $callback_port)
+    test -z "$response" && fail "Timed out while waiting to authorize GitHub app \
+$GH_CLIENT_ID or something went wrong."
+    echo "$response" | grep -E '^GET' | sed 's/.*code=\(.*\) HTTP.*$/\1/'
+  }
+
+  _exchange_code_and_secret_for_access_token() {
+    code="$1"
+    url="https://github.com/login/oauth/access_token?client_id=$GH_CLIENT_ID&\
+client_secret=$GH_CLIENT_SECRET&code=$code"
+    response=$(curl -H "Accept: application/json" -X POST "$url")
+    test -z "$response" && fail "GitHub didn't respond upon attempting to get an access token."
+    error=$(jq -r '.error' <<< "$response")
+    error_desc=$(jq -r '.error_description' <<< "$response")
+    test "$error" == "null" || fail "Failed to get a GitHub access token: $error => $error_desc"
+    jq -r '.access_token' <<< "$response"
+  }
+
+  _tell_user_to_authorize_their_app
+  code=$(_wait_for_code)
+  _exchange_code_and_secret_for_access_token "$code"
+}
+
+
 if test "$1" == "-h" || test "$1" == "--help"
 then
   usage
@@ -463,22 +627,36 @@ then
   fail "Homebrew isn't installed. Please install it."
 fi
 
+if use_experimental_universal_build
+then
+  verify_gh_actions_env_vars_or_fail
+  verify_jq_installed_or_fail
+fi
+
 delete_obs_and_deps_before_building
-verify_obs_version_or_fail
-remove_data_directories_if_repackaging
-install_dependencies_or_fail
-download_vlc_or_fail
-download_chromium_embedded_framework_or_fail
-download_obs_or_fail
-download_obs_deps_or_fail
-copy_modified_files_into_cloned_repo
-copy_templates_into_cloned_repo
-fetch_speexdsp_source
-build_obs_or_fail
-dmg_obs_or_fail
-add_opengl_into_package
-add_cef_into_package
-add_virtualcam_plugin
+if use_experimental_universal_build
+then
+  token=$(retrieve_access_token_or_fail)
+  test -z "$token" && fail "Couldn't get a valid GitHub access token; check logs above for more
+info."
+  download_experimental_universal_build_of_obs_or_fail "$token"
+else
+  verify_obs_version_or_fail
+  remove_data_directories_if_repackaging
+  install_dependencies_or_fail
+  download_vlc_or_fail
+  download_chromium_embedded_framework_or_fail
+  download_obs_or_fail
+  download_obs_deps_or_fail
+  copy_modified_files_into_cloned_repo
+  copy_templates_into_cloned_repo
+  fetch_speexdsp_source
+  build_obs_or_fail
+  dmg_obs_or_fail
+  add_opengl_into_package
+  add_cef_into_package
+  add_virtualcam_plugin
+fi
 copy_obs_app_into_downloads
 remove_data_directories
 
