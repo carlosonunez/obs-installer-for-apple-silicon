@@ -383,7 +383,7 @@ build_obs_or_fail() {
       -DLEGACY_BROWSER=OFF \
       -DCEF_ROOT_DIR="${CEF_DIR}/${CEF_FOLDER_NAME}" \
       -DDepsPath="$OBS_DEPS_DIR" .. &&
-    make &&
+    make -j8 &&
     stat rundir/RelWithDebInfo/bin/obs 1>/dev/null
   )
   then
