@@ -43,15 +43,18 @@ To use `./install.sh` to retrieve these builds, follow these instructions:
 
    After you create your app, you'll be given a `Client ID`. Keep this page
    open, as you'll need it in a few steps from now.
-2. Give your new app `read-only` permission to the Actions API. Go
+
+2. Set the callback URL of your new App to "http://localhost:4567"
+   
+3. Give your new app `read-only` permission to the Actions API. Go
    [here](https://docs.github.com/en/developers/apps/managing-github-apps/editing-a-github-apps-permissions)
    to learn how to do that.
-3. Go back to the App's summary page (the page that shows you its `Client ID`).
+4. Go back to the App's summary page (the page that shows you its `Client ID`).
    Click the "Generate A New Client Secret" button. A random string will show up
    underneath it.
 
    This is your client secret. It will only be shown once.
-4. Go back to your terminal and run `./install.sh` like this:
+5. Go back to your terminal and run `./install.sh` like this:
 
    ```sh
    USE_EXPERIMENTAL_UNIVERSAL_BUILD=true \
