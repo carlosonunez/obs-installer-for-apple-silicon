@@ -479,7 +479,7 @@ copy_obs_app_into_downloads() {
 add_virtualcam_plugin() {
   log_info "Adding MacOS Virtual Camera plugin."
   cp -r "$OBS_INSTALL_DIR/cmake/rundir/RelWithDebInfo/data/obs-plugins/mac-virtualcam/obs-mac-virtualcam.plugin" \
-    "$(intermediate_app_path)/Contents/Resources/data"
+    "$(intermediate_app_path)/Contents/Resources/data/obs-plugins/mac-virtualcam"
 }
 
 remove_data_directories_if_repackaging() {
