@@ -9,9 +9,9 @@ REPACKAGE="${REPACKAGE:-false}"
 LOG_LEVEL="${LOG_LEVEL:-info}"
 OBS_INSTALL_DIR="/tmp/obs"
 OBS_DEPS_DIR="/tmp/obsdeps"
+OBS_DEPS_URL=https://github.com/obsproject/obs-deps/releases/download/2022-01-01/macos-deps-2022-01-01-arm64.tar.xz
 OBS_GH_ACTIONS_RUNS_URI="repos/obsproject/obs-studio/actions/runs?branch=universal-build&actor=PatTheMav'"
 OBS_GIT_URI=https://github.com/obsproject/obs-studio.git
-OBS_DEPS_GIT_URI=https://github.com/obsproject/obs-deps.git
 OBS_VERSION="${OBS_VERSION:-27.1.3}"
 VLC_VERSION=3.0.8
 VLC_URL="https://downloads.videolan.org/vlc/${VLC_VERSION}/vlc-${VLC_VERSION}.tar.xz"
@@ -327,7 +327,18 @@ download_obs_or_fail() {
 }
 
 download_obs_deps_or_fail() {
-  _fetch "OBS Dependencies" "$OBS_DEPS_DIR" "$OBS_DEPS_GIT_URI" "obs_deps" "master"
+  if ! test -d "$OBS_DEPS_DIR"
+  then
+    log_info "Fetching [OBS Dependencies] from [$OBS_DEPS_URL] and extracting into [$OBS_DEPS_DIR]"
+    if ! {
+      mkdir -p "$OBS_DEPS_DIR" &&
+        curl -Lo /tmp/obs-deps.tar.gz "$OBS_DEPS_URL" &&
+        tar -xzf /tmp/obs-deps.tar.gz -C "$OBS_DEPS_DIR";
+      }
+    then
+      fail "Couldn't install OBS Dependencies; see logs above"
+    fi
+  fi
 }
 
 fetch_speexdsp_source() {
@@ -440,6 +451,7 @@ add_bundled_plugins_or_fail() {
       -s "$(intermediate_app_path)/Contents/Resources/bin" \
       -s "$(intermediate_app_path)/Contents/MacOS" \
       -s "$OBS_INSTALL_DIR/cmake/rundir/RelWithDebInfo/obs-plugins" \
+      -s "${OBS_DEPS_DIR}/lib" \
       -x "$OBS_INSTALL_DIR/cmake/rundir/RelWithDebInfo/bin/obs-ffmpeg-mux" \
       $(echo "${BUNDLE_PLUGINS[@]/#/-x ${OBS_INSTALL_DIR}/cmake/rundir/RelWithDebInfo/obs-plugins/}");
   }
@@ -458,6 +470,7 @@ copy_obs_app_into_downloads() {
   log_info "Copying final OBS DMG into your Downloads directory"
   test -f "$FINAL_APP_PATH" && rm -f "$FINAL_APP_PATH"
   cp -r "$(intermediate_app_path)" "$FINAL_APP_PATH"
+  cp -Rv "${OBS_DEPS_DIR}/lib/." "$FINAL_APP_PATH/Contents/Resources/bin/"
 }
 
 add_virtualcam_plugin() {
