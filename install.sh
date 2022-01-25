@@ -387,6 +387,7 @@ build_obs_or_fail() {
       -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/qt@5;/opt/homebrew/opt/mbedtls@2" \
       -DSPEEXDSP_INCLUDE_DIR="$SPEEX_DIR/include" \
       -DSWIGDIR="$OBS_DEPS_DIR" \
+      -DOBS_BETA=0 \
       -DENABLE_VLC=ON \
       -DWITH_RTMPS=ON \
       -DVLC_INCLUDE_DIR="$VLC_DIR/vlc-${VLC_VERSION}/include/vlc" \
