@@ -10,7 +10,7 @@ This build includes:
 ## How to Use
 
 > **NOTE**: An experimental version of an official ARM-based OBS app
-> exists. Skip to [this](#download-experimental-official-build) section
+> exists. Skip to [this](#download-experimental-official-build-v120-and-above) section
 > to use this script to download and install it.
 
 From a Terminal (⌘-Space, type "Terminal"), simply:
