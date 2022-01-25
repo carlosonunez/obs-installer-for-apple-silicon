@@ -15,9 +15,9 @@ OBS_GIT_URI=https://github.com/obsproject/obs-studio.git
 OBS_VERSION="${OBS_VERSION:-27.1.3}"
 VLC_VERSION=3.0.8
 VLC_URL="https://downloads.videolan.org/vlc/${VLC_VERSION}/vlc-${VLC_VERSION}.tar.xz"
-VLC_DIR=/tmp/vlc-obs
+VLC_DIR="$TMPDIR/vlc-obs"
 CEF_URL="https://cef-builds.spotifycdn.com/cef_binary_94.4.5%2Bg0fd0d6f%2Bchromium-94.0.4606.71_macosarm64.tar.bz2"
-CEF_DIR=/tmp/cef-obs
+CEF_DIR="$TMPDIR/cef-obs"
 CEF_FOLDER_NAME=cef_binary_94.4.5+g0fd0d6f+chromium-94.0.4606.71_macosarm64
 SPEEX_DIR=/tmp/speexdsp
 SPEEX_URI=https://github.com/xiph/speexdsp.git
@@ -157,7 +157,7 @@ _fetch() {
       then
         log_warning "You want version [$version_number] of '$name', but we last built \
 version [$last_version_built]. The previous sources will be deleted."
-        REMOVE_INSTALLATION_DIRS=true remove_data_directories
+        REMOVE_INSTALLATION_DIRS=true KEEP_VLC_AND_CEF=true remove_data_directories
       fi
       log_info "Downloading [$name] at version [$version_number] from [$git_uri] to $dest. This might take a while; please be patient."
       if ! git clone --branch "$version_number" --recursive "$git_uri" "$dest"
@@ -295,11 +295,12 @@ install_dependencies_or_fail() {
 download_chromium_embedded_framework_or_fail() {
   if ! test -d "$CEF_DIR"
   then
-    log_info "Fetching [Chromium Embedded Framework] from [$CEF_URL]"
+    log_info "Fetching [Chromium Embedded Framework] from [$CEF_URL] \
+and extracting into [$CEF_DIR]"
     if ! {
       mkdir -p "$CEF_DIR" &&
-        curl -Lo /tmp/vlc-obs.tar.gz "$CEF_URL" &&
-        tar -xzf /tmp/vlc-obs.tar.gz -C "$CEF_DIR";
+        curl -Lo /tmp/vlc-cef.tar.gz "$CEF_URL" &&
+        tar -xzf /tmp/vlc-cef.tar.gz -C "$CEF_DIR";
       }
     then
       fail "Couldn't install Chromium Embedded Framework; see logs above"
@@ -310,7 +311,7 @@ download_chromium_embedded_framework_or_fail() {
 download_vlc_or_fail() {
   if ! test -d "$VLC_DIR"
   then
-    log_info "Fetching [VLC] from [$VLC_URL]"
+    log_info "Fetching [VLC] from [$VLC_URL] and extracting into [$VLC_DIR]"
     if ! {
       mkdir -p "$VLC_DIR" &&
         curl -Lo /tmp/vlc-obs.tar.gz "$VLC_URL" &&
@@ -389,6 +390,7 @@ build_obs_or_fail() {
       -DENABLE_VLC=ON \
       -DWITH_RTMPS=ON \
       -DVLC_INCLUDE_DIR="$VLC_DIR/vlc-${VLC_VERSION}/include/vlc" \
+      -DLIBVLC_INCLUDE_DIRS="$VLC_DIR/vlc-${VLC_VERSION}/include/vlc" \
       -DVLCPath="$VLC_DIR/vlc-${VLC_VERSION}" \
       -DBUILD_BROWSER=ON \
       -DLEGACY_BROWSER=OFF \
@@ -487,14 +489,18 @@ remove_data_directories_if_repackaging() {
 }
 
 remove_data_directories() {
+  if test "$KEEP_VLC_AND_CEF" != "true"
+  then
+    log_info "Removing VLC and CEF..."
+    rm -rf "$VLC_DIR" &&
+    rm -rf "$CEF_DIR"
+  fi
   if test "$REMOVE_INSTALLATION_DIRS" == "true"
   then
-    log_info "Removing OBS sources"
+    log_info "Removing OBS sources..."
     rm -rf "$OBS_INSTALL_DIR" &&
       rm -rf "$OBS_DEPS_DIR" &&
       rm -rf "$SPEEX_DIR" &&
-      rm -rf "$VLC_DIR" &&
-      rm -rf "$CEF_DIR" &&
       rm -rf "$DYLIBBUNDLER_PATH"
   else
     log_info "Clean up skipped. You can find OBS sources at $OBS_INSTALL_DIR,
