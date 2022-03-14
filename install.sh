@@ -12,7 +12,7 @@ OBS_DEPS_DIR="/tmp/obsdeps"
 OBS_DEPS_URL=https://github.com/obsproject/obs-deps/releases/download/2022-01-01/macos-deps-2022-01-01-arm64.tar.xz
 OBS_GH_ACTIONS_RUNS_URI="repos/obsproject/obs-studio/actions/runs?branch=universal-build&actor=PatTheMav'"
 OBS_GIT_URI=https://github.com/obsproject/obs-studio.git
-OBS_VERSION="${OBS_VERSION:-27.1.3}"
+OBS_VERSION="${OBS_VERSION:-27.2.3}"
 VLC_VERSION=3.0.8
 VLC_URL="https://downloads.videolan.org/vlc/${VLC_VERSION}/vlc-${VLC_VERSION}.tar.xz"
 VLC_DIR="$TMPDIR/vlc-obs"

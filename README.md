@@ -25,6 +25,11 @@ run this:
 OBS_VERSION=[VERSION] ./install.sh
 ```
 
+> ⚠️  This branch builds and installs the latest version of OBS available. If you
+> wish to install an older version, either use the `OBS_VERSION` environment
+> variable shown above or clone to a release corresponding to the version of OBS
+> you'd like to use. The tags for these releases start with `obs-`.
+
 **NOTE**: This script downloads OBS and its dependencies for you. If you wish to keep them
 after installation completes, run this instead:
 `REMOVE_INSTALLATION_DIRS=false ./install.sh`
