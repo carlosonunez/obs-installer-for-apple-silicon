@@ -9,16 +9,20 @@ REPACKAGE="${REPACKAGE:-false}"
 LOG_LEVEL="${LOG_LEVEL:-info}"
 OBS_INSTALL_DIR="/tmp/obs"
 OBS_DEPS_DIR="/tmp/obsdeps"
-OBS_DEPS_URL=https://github.com/obsproject/obs-deps/releases/download/2022-01-01/macos-deps-2022-01-01-arm64.tar.xz
+#OBS_DEPS_URL=https://github.com/obsproject/obs-deps/releases/download/2022-01-01/macos-deps-2022-01-01-arm64.tar.xz
+OBS_DEPS_URL=https://github.com/obsproject/obs-deps/releases/download/2022-02-13/macos-deps-2022-02-13-arm64.tar.xz
 OBS_GH_ACTIONS_RUNS_URI="repos/obsproject/obs-studio/actions/runs?branch=universal-build&actor=PatTheMav'"
 OBS_GIT_URI=https://github.com/obsproject/obs-studio.git
 OBS_RELEASES_URL=https://api.github.com/repos/obsproject/obs-studio/releases
-VLC_VERSION=3.0.8
+#VLC_VERSION=3.0.8
+VLC_VERSION=3.0.17.3
 VLC_URL="https://downloads.videolan.org/vlc/${VLC_VERSION}/vlc-${VLC_VERSION}.tar.xz"
 VLC_DIR="$TMPDIR/vlc-obs"
-CEF_URL="https://cef-builds.spotifycdn.com/cef_binary_94.4.5%2Bg0fd0d6f%2Bchromium-94.0.4606.71_macosarm64.tar.bz2"
+#CEF_URL="https://cef-builds.spotifycdn.com/cef_binary_94.4.5%2Bg0fd0d6f%2Bchromium-94.0.4606.71_macosarm64.tar.bz2"
+CEF_URL="https://cef-builds.spotifycdn.com/cef_binary_99.2.15%2Bg71e9523%2Bchromium-99.0.4844.84_macosarm64.tar.bz2"
 CEF_DIR="$TMPDIR/cef-obs"
-CEF_FOLDER_NAME=cef_binary_94.4.5+g0fd0d6f+chromium-94.0.4606.71_macosarm64
+#CEF_FOLDER_NAME=cef_binary_94.4.5+g0fd0d6f+chromium-94.0.4606.71_macosarm64
+CEF_FOLDER_NAME=cef_binary_99.2.15+g71e9523+chromium-99.0.4844.84_macosarm64
 SPEEX_DIR=/tmp/speexdsp
 SPEEX_URI=https://github.com/xiph/speexdsp.git
 DYLIBBUNDLER_URI=https://github.com/obsproject/obs-studio/raw/master/CI/scripts/macos/app/dylibbundler
@@ -635,6 +639,14 @@ fetch_latest_obs_version_from_upstream() {
   fi
 }
 
+fix_missing_jansson(){
+  if [ ! -f "/tmp/obs/plugins/obs-outputs/ftl-sdk/libftl/jansson.h" ] ;then
+  wget -qO/tmp/obs/plugins/obs-outputs/ftl-sdk/libftl/jansson.h https://github.com/akheron/jansson/raw/master/src/jansson.h
+  wget -qO/tmp/obs/plugins/obs-outputs/ftl-sdk/libftl/jansson_config.h https://github.com/montegoulding/mergJSON/raw/master/mergJSON/win-include/jansson_config.h
+  fi
+}
+
+
 
 if test "$1" == "-h" || test "$1" == "--help"
 then
@@ -681,6 +693,7 @@ else
   copy_modified_files_into_cloned_repo
   copy_templates_into_cloned_repo
   fetch_speexdsp_source
+  fix_missing_jansson
   build_obs_or_fail
   dmg_obs_or_fail
   add_opengl_into_package
