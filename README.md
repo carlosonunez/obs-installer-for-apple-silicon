@@ -1,3 +1,13 @@
+> # ⚠️ This project is deprecated
+>
+> OBS now has native Apple Silicon builds as of v29.
+>
+> Please use the native builds.
+>
+> Visit the releases page [here](https://github.com/obsproject/obs-studio/releases)
+>
+> Thank you for supporting the Apple Silicon OBS Installer!
+
 # obs-installer-for-apple-silicon
 
 Use this script to conveniently build the latest version of OBS on Apple M1 Macs and MacBooks.
